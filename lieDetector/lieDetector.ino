@@ -1,13 +1,13 @@
 #include <MapleFreeRTOS821.h>
 #define BOARD_LED_PIN PC13
-#define  BUTTON_PIN PB10;
+#define  BUTTON_PIN PB10
 
-int sensorValue; 
+//int sensorValue; 
 bool programStart = false;
 
 xSemaphoreHandle mutex1 = 0; 
 TaskHandle_t xHandle; 
-
+QueueHandle_t xSensorQueue; 
 
 
 static void vLEDFlashTask(void *pvParameters) {
@@ -22,18 +22,21 @@ static void vLEDFlashTask(void *pvParameters) {
 static void vSendBlue(void *pvParameters) {
     for (;;) {
         vTaskDelay(100);
-        xSemaphoreTake(mutex1,100);
+        //xSemaphoreTake(mutex1,100);
+        int sensorValue; 
+        xQueueReceive(xSensorQueue,&sensorValue, 100); 
         Serial.println(sensorValue);
-        xSemaphoreGive(mutex1);  
-        vTaskDelay(500);
+        //xSemaphoreGive(mutex1);  
+        vTaskDelay(100);
     }
 }
 
 static void vSensorInput(void *pvParameters) {
     for (;;) {
-     xSemaphoreTake(mutex1, 100);
-     sensorValue = analogRead(PA0);
-     xSemaphoreGive(mutex1);
+     //xSemaphoreTake(mutex1, 100);
+     int sensorValue = analogRead(PA0);
+     xQueueSend(xSensorQueue, &sensorValue, 100); 
+     //xSemaphoreGive(mutex1);
      vTaskDelay(100); 
     }
 }
@@ -58,7 +61,7 @@ void setup() {
     pinMode(BUTTON_PIN, INPUT_PULLUP); 
     Serial.begin(9600); 
     mutex1 = xSemaphoreCreateMutex(); 
-   
+    xSensorQueue = xQueueCreate(10, sizeof(int)); 
     
     xTaskCreate(vLEDFlashTask,
                 "Task1",
