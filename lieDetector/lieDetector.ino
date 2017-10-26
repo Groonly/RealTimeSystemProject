@@ -1,6 +1,6 @@
 #include <MapleFreeRTOS821.h>
 #define BOARD_LED_PIN PC13
-int buttonPin = PB10;
+#define  BUTTON_PIN PB10;
 
 int sensorValue; 
 bool programStart = false;
@@ -40,7 +40,7 @@ static void vSensorInput(void *pvParameters) {
 
 static void vStartButton(void *pvParameters) {
     for (;;) {
-      int buttonState = digitalRead(buttonPin); 
+      int buttonState = digitalRead(BUTTON_PIN); 
       if(buttonState == HIGH && programStart == false){
         vTaskSuspendAll();
         Serial.println("------PROGRAM START-----");  
@@ -55,7 +55,7 @@ static void vStartButton(void *pvParameters) {
 void setup() {
     // initialize the digital pin as an output:
     pinMode(BOARD_LED_PIN, OUTPUT);
-    pinMode(buttonPin, INPUT_PULLUP); 
+    pinMode(BUTTON_PIN, INPUT_PULLUP); 
     Serial.begin(9600); 
     mutex1 = xSemaphoreCreateMutex(); 
    
