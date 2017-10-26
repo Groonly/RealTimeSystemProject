@@ -1,15 +1,20 @@
 #include <MapleFreeRTOS821.h>
 #define BOARD_LED_PIN PC13
+int buttonPin = PB10;
 
 int sensorValue; 
+bool programStart = false;
+
 xSemaphoreHandle mutex1 = 0; 
+TaskHandle_t xHandle; 
+
 
 
 static void vLEDFlashTask(void *pvParameters) {
     for (;;) {
         vTaskDelay(1000);
         digitalWrite(BOARD_LED_PIN, HIGH);
-        vTaskDelay(50);
+        vTaskDelay(1000);
         digitalWrite(BOARD_LED_PIN, LOW);
     }
 }
@@ -18,7 +23,7 @@ static void vSendBlue(void *pvParameters) {
     for (;;) {
         vTaskDelay(100);
         xSemaphoreTake(mutex1,100);
-        Serial1.println(sensorValue);
+        Serial.println(sensorValue);
         xSemaphoreGive(mutex1);  
         vTaskDelay(500);
     }
@@ -33,11 +38,27 @@ static void vSensorInput(void *pvParameters) {
     }
 }
 
+static void vStartButton(void *pvParameters) {
+    for (;;) {
+      int buttonState = digitalRead(buttonPin); 
+      if(buttonState == HIGH && programStart == false){
+        vTaskSuspendAll();
+        Serial.println("------PROGRAM START-----");  
+        Serial.println("------PROGRAM START-----");  
+        xTaskResumeAll(); 
+        programStart = true; 
+      }
+     vTaskDelay(100); 
+    }
+}
+
 void setup() {
     // initialize the digital pin as an output:
     pinMode(BOARD_LED_PIN, OUTPUT);
-    Serial1.begin(9600); 
+    pinMode(buttonPin, INPUT_PULLUP); 
+    Serial.begin(9600); 
     mutex1 = xSemaphoreCreateMutex(); 
+   
     
     xTaskCreate(vLEDFlashTask,
                 "Task1",
@@ -56,8 +77,14 @@ void setup() {
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 tskIDLE_PRIORITY + 2,
-                NULL);
-                
+                &xHandle);
+     xTaskCreate(vStartButton,
+              "Task3",
+              configMINIMAL_STACK_SIZE,
+              NULL,
+              tskIDLE_PRIORITY + 2,
+              NULL);   
+             
     vTaskStartScheduler();
 }
 
