@@ -8,17 +8,17 @@
 #define PULSE_SENSOR_PIN PA1
 
 int ledArray[]= {PB3, PB15, PB5, PB6, PB7, PB8, PA9, PB12, PB13, PB14}; 
-int EDASensorValue, loopCount, mapped; 
+int EDASensorValue; 
 int sensorMax = 0;
-int heartHigh, heartLow;
+int heartHigh, heartLow,loopCount, mapped;
 int pulseData[200];
 
 
 xSemaphoreHandle mutex1 = 0; 
-static TaskHandle_t xHandle1 = NULL, xHandle2 = NULL; 
+//static TaskHandle_t xHandle1 = NULL, xHandle2 = NULL; 
 
 
-
+/*Flash onboard LED 1 sec ON 1 sec OFF*/
 static void vLEDFlashTask(void *pvParameters) {
     for (;;) {
         vTaskDelay(1000/portTICK_PERIOD_MS);
@@ -29,6 +29,7 @@ static void vLEDFlashTask(void *pvParameters) {
     }
 }
 
+/*Handeling sending over uart ----Can maybe be placed inside EDA task, every sesnorTask handel its own sending?*/
 static void vUartTX(void *pvParameters) {
     for (;;) {
         xSemaphoreTake(mutex1,100);
@@ -39,7 +40,7 @@ static void vUartTX(void *pvParameters) {
         vTaskDelay(10/portTICK_PERIOD_MS);
     }
 }
-
+/*Reading input from A0 (EDA sensor) every 10 mS*/
 static void vEDAInput(void *pvParameters) {
     for (;;) {
      xSemaphoreTake(mutex1, 100);
@@ -49,7 +50,7 @@ static void vEDAInput(void *pvParameters) {
      vTaskDelay(10/portTICK_PERIOD_MS); 
     }
 }
-
+/*Reading input from A1 (Pulse sensor) Top priority task needs to be handled every 5 ms to create a good curve*/
 static void vPulseInput(void *pvParameters) {
     for (;;) {
       vTaskSuspendAll();
@@ -83,7 +84,7 @@ static void vPulseInput(void *pvParameters) {
      vTaskDelay(5/portTICK_PERIOD_MS);
     }
 }
-
+/*Reading input from button press, two buttons implemnted, calibrates MAX value EDA*/
 static void vCheckButtons(void* pvParameters) {
   for(;;) {
     if(digitalRead(GREEN_BUTTON_PIN)){ 
@@ -109,9 +110,11 @@ void setup() {
     pinMode(LED_PIN, OUTPUT);
     pinMode(GREEN_BUTTON_PIN, INPUT_PULLUP);
     pinMode(RED_BUTTON_PIN, INPUT_PULLUP);
+    
     for(int i = 0; i < 10; i++){
       pinMode(ledArray[i], OUTPUT); 
     }
+    
     for(int i = 0; i < 10; i++){
       digitalWrite(ledArray[i], LOW); 
       delay(100); 
@@ -146,7 +149,7 @@ void setup() {
               tskIDLE_PRIORITY + 2,
               NULL);  
     xTaskCreate(vPulseInput,
-              "Task6",
+              "Task5",
               configMINIMAL_STACK_SIZE,
               NULL,
               tskIDLE_PRIORITY + 3,
