@@ -9,7 +9,7 @@ enum states {
 };
 
 enum states state;
-
+bool EDAStart = false;
 static void OnOffTask(void* pvParameters);
 static void EDAInitTask(void* pvParameters); // Varför ta medelvärde?
 static void EDATask(void* pvParameters);
@@ -55,6 +55,7 @@ static void OnOffTask(void* pvParameters)
   for(;;) {         
     if(digitalRead(GREEN_BUTTON) == HIGH && state == Off) {         
       state = On; 
+      EDAStart = true; 
       vTaskResume(EDAInitTask_Handle);  
       vTaskResume(OximeterTask_Handle);      
     } else if(state == On) {                
@@ -87,12 +88,14 @@ static void EDATask(void* pvParameters) {
         vTaskResume(OnOffTask_Handle); // OnOffTask har lägst prio hoppar inte dit än. Bör igentligen hoppa till OximeterTask där den suspendats men OximeterTask kommer vara suspendad då.
         vTaskSuspend(OximeterTask_Handle); // Suspenda OximeterTask, kommer börja här ifrån när det unsuspendas      
         if(state == Off) {
+           state = On; 
            vTaskSuspend(EDATask_Handle); // Suspenda sig själv, kommer börja härifrån när den Unsuspendas.            
         }       
         vTaskSuspend(OnOffTask_Handle); // Suspenda så det inte kan hoppa till denna task
     } else {
       // Läs av EDA-proben
       EDAValRaw = analogRead(EDA);
+      Serial.println(EDAValRaw);
       if(EDAValRaw > EDAThreshold) {
           // Buzzerljud eller hoppa till annan task.
       }
@@ -104,19 +107,22 @@ static void EDATask(void* pvParameters) {
 
 static void OximeterTask(void* pvParameters) {   
   Serial.println("I OximeterTask.");
-  vTaskResume(EDATask_Handle);
   vTaskSuspend(OnOffTask_Handle); 
       
   for(;;) {
-    if(digitalRead(RED_BUTTON) == HIGH) {
-      state = Off;   
+    if(EDAStart == true){
+      vTaskResume(EDATask_Handle);
+      EDAStart = false; 
+    }
+    if(digitalRead(RED_BUTTON) == HIGH) {  
       // vTaskPrioritySet(OnOffTask_Handle, 20);
       vTaskResume(OnOffTask_Handle); //OnOffTask har lägst prio, kommer inte hoppa dit försän resten av tasken har suspendats.
       vTaskSuspend(EDATask_Handle); // Suspenda EDATask, kommer börja här ifrån när det unsuspendas
-      vTaskSuspend(OximeterTask_Handle); // Suspenda sig själv, kommer börja härifrån när den Unsuspendas.   
+      vTaskSuspend(OximeterTask_Handle); // Suspenda sig själv, kommer börja härifrån när den Unsuspendas.
+      vTaskResume(EDATask_Handle);   
       vTaskSuspend(OnOffTask_Handle); // Suspenda så det inte kan hoppa till denna task  
     } else {
-      Serial.println(analogRead(PA1)); 
+      //Serial.println(analogRead(PA1)); 
       vTaskDelay(5/portTICK_PERIOD_MS);            
     }    
   }    
