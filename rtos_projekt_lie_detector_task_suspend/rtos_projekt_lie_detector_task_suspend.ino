@@ -3,7 +3,13 @@
 #define GREEN_BUTTON PB6
 #define RED_BUTTON PB7
 #define EDA PA0
+#define OXIMETER PA1
+#define LED PB10
+#define BUZZER PB11
 
+
+int data[200], i;
+int heart_high, heart_low, count = 0;
 enum states {
   On, Off
 };
@@ -22,7 +28,6 @@ TaskHandle_t EDATask_Handle;
 TaskHandle_t OximeterTask_Handle;
 
 BaseType_t xReturn;
-
 int EDAThreshold = 0;
 
 void setup() {  
@@ -30,7 +35,8 @@ void setup() {
   delay(2000); // Vänta på att Serialen verkligen har startats  
   pinMode(GREEN_BUTTON, INPUT);
   pinMode(RED_BUTTON, INPUT);  
-
+  pinMode(LED, OUTPUT);
+  pinMode(BUZZER, OUTPUT);
   state = Off;
   xReturn = xTaskCreate(OnOffTask, "OnOff", configMINIMAL_STACK_SIZE, NULL, 1, &OnOffTask_Handle);
   
@@ -95,7 +101,7 @@ static void EDATask(void* pvParameters) {
     } else {
       // Läs av EDA-proben
       EDAValRaw = analogRead(EDA);
-      Serial.println(EDAValRaw);
+      //Serial.println(EDAValRaw);
       if(EDAValRaw > EDAThreshold) {
           // Buzzerljud eller hoppa till annan task.
       }
@@ -121,12 +127,35 @@ static void OximeterTask(void* pvParameters) {
       vTaskSuspend(OximeterTask_Handle); // Suspenda sig själv, kommer börja härifrån när den Unsuspendas.
       vTaskResume(EDATask_Handle);   
       vTaskSuspend(OnOffTask_Handle); // Suspenda så det inte kan hoppa till denna task  
-    } else {
-      //Serial.println(analogRead(PA1)); 
-      vTaskDelay(5/portTICK_PERIOD_MS);            
+    } else {      
+      heart_high=0;
+      heart_low = 4049;
+      //search for the low and high out of the last 200 samples
+      for(i=200; i>0; i--){
+        data[i] = data[i-1];
+        if(data[i]>heart_high)
+          heart_high=data[i];
+        if(data[i]<heart_low)
+          heart_low=data[i];       
+      }
+      data[0] = analogRead(OXIMETER);
+      Serial.println(data[0]); 
+     if(count > 80){
+        if(data[0] > (heart_high-0.3*(heart_high-heart_low))){
+          //Serial.println("------------------------------------PULSE---------------------------------------------");
+          digitalWrite(LED, HIGH);
+          digitalWrite(BUZZER, HIGH);
+          count = 0;  
+        }
+      }
+      else{
+        digitalWrite(LED, LOW);
+        digitalWrite(BUZZER, LOW);
+        count++; 
+      }
+      vTaskDelay(5/portTICK_PERIOD_MS);                
     }    
   }    
-  
 }
 
 
